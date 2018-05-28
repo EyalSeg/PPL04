@@ -134,3 +134,4 @@ assert.deepEqual(L5typeof("(lambda () : number 1)"), "(Empty -> number)");
 assert.deepEqual(L5typeof(`(define (x : (T1 -> (T1 -> number)))
                              (lambda ((x : T1)) : (T1 -> number)
                                (lambda((y : T1)) : number 5)))`), "void");
+console.log("SUCCESS")

@@ -5,7 +5,7 @@ import { map, zip, zipWith } from 'ramda';
 import { isAppExp, isBoolExp, isDefineExp, isEmpty, isIfExp, isLetrecExp, isLetExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parse, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, LitExp, NumExp,
-         Parsed, PrimOp, ProcExp, Program, SetExp, StrExp } from "./L5-ast";
+         Parsed, PrimOp, ProcExp, Program, SetExp, StrExp, makeProgram } from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 // import { isEmpty, isLetrecExp, isLitExp, isStrExp, BoolExp } from "./L5-ast";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
@@ -13,6 +13,7 @@ import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeV
          BoolTExp, NumTExp, ProcTExp, StrTExp, TExp } from "./TExp";
 import { getErrorMessages, hasNoError, isError } from './error';
 import { allT, first, rest, second } from './list';
+import { makeExtEnv } from "./L5-env";
 
 // Purpose: Check that type expressions are equivalent
 // as part of a fully-annotated type check process of exp.
@@ -205,14 +206,44 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): TExp | Error => {
 //   (define (var : texp) val)
 // TODO - write the true definition
 export const typeofDefine = (exp: DefineExp, tenv: TEnv): TExp | Error => {
-    // return Error("TODO");
-    return makeVoidTExp();
+    return isDefineValid(exp, tenv)?
+        makeVoidTExp():
+        TypeError()
+};
+
+export const isDefineValid = (exp: DefineExp, tenv: TEnv): boolean => {
+    let valT = typeofExp(exp.val,tenv)
+
+    return deepEqual(exp.var.texp , typeofExp(exp.val,tenv))
 };
 
 // Purpose: compute the type of a program
 // Typing rule:
 // TODO - write the true definition
 export const typeofProgram = (exp: Program, tenv: TEnv): TExp | Error => {
-    return Error("TODO");
+    if(exp.exps.length == 1)
+        return typeofExp(exp.exps[0] , tenv)
+    
+    let subProg = makeProgram(exp.exps.slice(1))  
+
+    if(isDefineExp(exp.exps[0]))
+    {
+        if(!isDefineValid)
+            return TypeError();
+        
+        let defineExp = exp.exps[0] as DefineExp;
+        let varArr = [defineExp.var.var]
+        let valT = typeofExp(defineExp.val,tenv)
+        if (isError(valT))
+            return valT
+
+        let valArr = [valT as TExp]
+        let newEnv = makeExtendTEnv(varArr , valArr , tenv)
+        return typeofProgram(subProg, newEnv)
+    }
+
+    return typeofProgram(subProg, tenv)
 };
+
+
 
