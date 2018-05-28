@@ -21,10 +21,18 @@ function race<T>(promises : Promise<T>[]) {
  * Example: [...flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]])] => [1, 2, 3, 4, 5, 6, 7, 8]
  */
 function* flatten<T>(array : Array<T>) {
+    if (array === undefined || array == null || array.length == 0)
+        return 
     
-    // TODO
-}
+    let head = array[0]
+    if (Array.isArray(head))
+        yield flatten(head)
+    else
+        yield head
 
+    yield flatten(array.slice(1))
+}
+console.log(take(flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]]), 8))
 /*
  * Given two generators, write a function
  * that generates the interleaved sequence
