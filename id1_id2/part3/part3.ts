@@ -4,7 +4,13 @@
  * as soon as one of the promises in the array resolves or rejects,
  * with the value or reason from that promise.
  */
-function race(promises) {
+function race<T>(promises : Promise<T>[]) {
+   return new Promise((resolve, reject) => {
+       promises.forEach(element => {
+           element.then((val) => resolve(val),
+                        (err) => reject(err))
+       });
+   })
     // TODO
 }
 
@@ -14,7 +20,8 @@ function race(promises) {
  * of values from the array.
  * Example: [...flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]])] => [1, 2, 3, 4, 5, 6, 7, 8]
  */
-function* flatten(array) {
+function* flatten<T>(array : Array<T>) {
+    
     // TODO
 }
 
