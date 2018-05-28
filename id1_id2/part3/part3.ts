@@ -26,12 +26,13 @@ function* flatten<T>(array : Array<T>) {
     
     let head = array[0]
     if (Array.isArray(head))
-        yield flatten(head)
+        yield* flatten(head)
     else
         yield head
 
-    yield flatten(array.slice(1))
+    yield* flatten(array.slice(1))
 }
+
 console.log(take(flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]]), 8))
 /*
  * Given two generators, write a function
@@ -41,7 +42,25 @@ console.log(take(flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]]), 8))
  * numbers, take(interleave(evens(), odds()), 8) => [0, 1, 2, 3, 4, 5, 6, 7]
  */
 function* interleave(g1, g2) {
-    // TODO
+    if (isNullOrUndefinedOrEmpty(g1) && isNullOrUndefinedOrEmpty(g2))
+    return
+
+    if (isNullOrUndefinedOrEmpty(g1))
+    {
+        yield* g2
+        return
+    }
+
+    if (isNullOrUndefinedOrEmpty(g2))
+    {
+        yield* g1  
+        return        
+    }
+
+    yield g1[0]
+    yield g2[0]
+
+    yield* interleave(g1.slice(1), g2.slice(1))
 }
 
 /*
@@ -50,7 +69,8 @@ function* interleave(g1, g2) {
  * Example: take(cycle([1, 2, 3]), 8) => [1, 2, 3, 1, 2, 3, 1, 2]
  */
 function* cycle(array) {
-    // TODO
+    while (true)
+        yield* array
 }
 
 /*
@@ -62,7 +82,11 @@ function* cycle(array) {
  * Example: [...chain([['A', 'B'], ['C', 'D']])] => ['A', 'B', 'C', 'D']
  */
 function* chain(arrays) {
-    // TODO
+    if (isNullOrUndefinedOrEmpty(arrays))
+        return
+
+    yield* arrays[0]
+    chain(arrays.split(1))
 }
 
 /*
@@ -82,4 +106,8 @@ function take(g, n) {
         result.push(value);
     }
     return result;
+}
+
+function isNullOrUndefinedOrEmpty(x) {
+    return (x == "undefined" || x == "null" || x.length == 0)
 }
