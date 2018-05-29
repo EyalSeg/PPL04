@@ -6,9 +6,10 @@
 import { map, zipWith } from "ramda";
 import p = require("s-expression");
 import { isClosure, isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExp } from './L5-value';
-import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp } from './TExp';
+import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp, PairTExp, makePairTExp } from './TExp';
 import { getErrorMessages, hasNoError, isError, safeF, safeFL } from './error';
 import { allT, first, rest, second } from './list';
+import { L5typeof } from "./L5-typecheck";
 
 /*
 // =============================================================================
@@ -254,7 +255,18 @@ const parseCompoundCExp = (sexps: any[]): CExp | Error =>
     first(sexps) === "letrec" ? parseLetrecExp(sexps) :
     first(sexps) === "set!" ? parseSetExp(sexps) :
     first(sexps) === "quote" ? parseLitExp(sexps) :
+  //  first(sexps) === "cons" ? parseConsExp(sexps) :
     parseAppExp(sexps)
+
+// const parseConsExp = (sexps : any[]) : PairTExp | Error =>{
+//     let left = sexps[1]
+//     let right = sexps[2]
+
+//     let leftT = L5typeof(left)
+//     let rightT = L5typeof(right)
+
+//     return makePairTExp(leftT, rightT)
+// }
 
 const parseAppExp = (sexps: any[]): AppExp | Error =>
     safeFL((cexps: CExp[]) => makeAppExp(first(cexps), rest(cexps)))(map(parseCExp, sexps));

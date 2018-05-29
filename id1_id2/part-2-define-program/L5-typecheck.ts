@@ -165,6 +165,7 @@ export const typeofLet = (exp: LetExp, tenv: TEnv): TExp | Error => {
         return Error(getErrorMessages(constraints));
 };
 
+
 // Purpose: compute the type of a letrec-exp
 // We make the same assumption as in L4 that letrec only binds proc values.
 // Typing rule:
@@ -206,15 +207,22 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): TExp | Error => {
 //   (define (var : texp) val)
 // TODO - write the true definition
 export const typeofDefine = (exp: DefineExp, tenv: TEnv): TExp | Error => {
-    return isDefineValid(exp, tenv)?
-        makeVoidTExp():
-        TypeError()
+    let isValid = isDefineValid(exp, tenv)
+    
+    return isError(isValid) ? 
+        TypeError(isValid.message) :
+        makeVoidTExp()
+        
 };
 
-export const isDefineValid = (exp: DefineExp, tenv: TEnv): boolean => {
-    let valT = typeofExp(exp.val,tenv)
+export const extendEnv = (defExp : DefineExp, env : TEnv) : TEnv => {
+    return makeExtendTEnv([defExp.var.var], [defExp.var.texp], env)
+};
 
-    return deepEqual(exp.var.texp , typeofExp(exp.val,tenv))
+export const isDefineValid = (exp: DefineExp, tenv: TEnv): true | Error => {
+    
+    let newEnv = extendEnv(exp, tenv)
+    return checkEqualType(exp.var.texp, typeofExp(exp.val, newEnv), exp)
 };
 
 // Purpose: compute the type of a program
@@ -228,17 +236,13 @@ export const typeofProgram = (exp: Program, tenv: TEnv): TExp | Error => {
 
     if(isDefineExp(exp.exps[0]))
     {
-        if(!isDefineValid)
-            return TypeError();
+        let isValid = isDefineValid(exp.exps[0] as DefineExp, tenv)
+        if(isError(isValid))
+            return TypeError(isValid.message);
         
         let defineExp = exp.exps[0] as DefineExp;
-        let varArr = [defineExp.var.var]
-        let valT = typeofExp(defineExp.val,tenv)
-        if (isError(valT))
-            return valT
+        let newEnv = extendEnv(defineExp, tenv)
 
-        let valArr = [valT as TExp]
-        let newEnv = makeExtendTEnv(varArr , valArr , tenv)
         return typeofProgram(subProg, newEnv)
     }
 

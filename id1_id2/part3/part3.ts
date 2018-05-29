@@ -1,10 +1,12 @@
+import slice from "ramda"
+
 /*
  * From Mozilla Developer Network:
  * The Promise.race(promises) method returns a promise that resolves or rejects
  * as soon as one of the promises in the array resolves or rejects,
  * with the value or reason from that promise.
  */
-function race<T>(promises : Promise<T>[]) {
+export function race<T>(promises : Promise<T>[]) {
    return new Promise((resolve, reject) => {
        promises.forEach(element => {
            element.then((val) => resolve(val),
@@ -20,7 +22,7 @@ function race<T>(promises : Promise<T>[]) {
  * of values from the array.
  * Example: [...flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]])] => [1, 2, 3, 4, 5, 6, 7, 8]
  */
-function* flatten<T>(array : Array<T>) {
+export function* flatten<T>(array : Array<T>) {
     if (array === undefined || array == null || array.length == 0)
         return 
     
@@ -41,26 +43,29 @@ console.log(take(flatten([1, [2, [3]], 4, [[5, 6], 7, [[[8]]]]]), 8))
  * Example: given generators for even and odd
  * numbers, take(interleave(evens(), odds()), 8) => [0, 1, 2, 3, 4, 5, 6, 7]
  */
-function* interleave(g1, g2) {
-    if (isNullOrUndefinedOrEmpty(g1) && isNullOrUndefinedOrEmpty(g2))
-    return
+export function* interleave(g1 , g2) {
+    let val1 = g1.next()
+    let val2 = g2.next()
 
-    if (isNullOrUndefinedOrEmpty(g1))
+    if (!(val1).done && !(val2.done))
     {
-        yield* g2
+        yield (val1).value
+        yield (val2).value
+        yield* (interleave(g1, g2))
+    }
+    else if (val1.done && val2.done)
         return
+    else if (val1.done){
+        yield val2.value
+        yield* g2;
     }
-
-    if (isNullOrUndefinedOrEmpty(g2))
+    else
     {
-        yield* g1  
-        return        
+        yield val1.value
+        yield* g1
     }
 
-    yield g1[0]
-    yield g2[0]
-
-    yield* interleave(g1.slice(1), g2.slice(1))
+    yield* interleave(g1, g2)
 }
 
 /*
@@ -68,7 +73,7 @@ function* interleave(g1, g2) {
  * elements of a given array in a cyclic manner.
  * Example: take(cycle([1, 2, 3]), 8) => [1, 2, 3, 1, 2, 3, 1, 2]
  */
-function* cycle(array) {
+export function* cycle(array) {
     while (true)
         yield* array
 }
@@ -81,12 +86,12 @@ function* cycle(array) {
  * as a single collection.
  * Example: [...chain([['A', 'B'], ['C', 'D']])] => ['A', 'B', 'C', 'D']
  */
-function* chain(arrays) {
+export function* chain(arrays) {
     if (isNullOrUndefinedOrEmpty(arrays))
         return
 
     yield* arrays[0]
-    chain(arrays.split(1))
+    yield* chain(arrays.slice(1))
 }
 
 /*
@@ -96,7 +101,7 @@ function* chain(arrays) {
  * If g is exhausted before reaching n elements,
  * less than n elements are returned. 
  */
-function take(g, n) {
+export function take(g, n) {
     const result = [];
     for (let i = 0; i < n; i++) {
         const { value, done } = g.next();

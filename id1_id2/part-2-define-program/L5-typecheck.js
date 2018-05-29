@@ -186,13 +186,17 @@ exports.typeofLetrec = function (exp, tenv) {
 //   (define (var : texp) val)
 // TODO - write the true definition
 exports.typeofDefine = function (exp, tenv) {
-    return exports.isDefineValid(exp, tenv) ?
-        TExp_1.makeVoidTExp() :
-        TypeError();
+    var isValid = exports.isDefineValid(exp, tenv);
+    return error_1.isError(isValid) ?
+        TypeError(isValid.message) :
+        TExp_1.makeVoidTExp();
+};
+exports.extendEnv = function (defExp, env) {
+    return TEnv_1.makeExtendTEnv([defExp.var.var], [defExp.var.texp], env);
 };
 exports.isDefineValid = function (exp, tenv) {
-    var valT = exports.typeofExp(exp.val, tenv);
-    return deepEqual(exp.var.texp, exports.typeofExp(exp.val, tenv));
+    var newEnv = exports.extendEnv(exp, tenv);
+    return checkEqualType(exp.var.texp, exports.typeofExp(exp.val, newEnv), exp);
 };
 // Purpose: compute the type of a program
 // Typing rule:
@@ -202,15 +206,11 @@ exports.typeofProgram = function (exp, tenv) {
         return exports.typeofExp(exp.exps[0], tenv);
     var subProg = L5_ast_1.makeProgram(exp.exps.slice(1));
     if (L5_ast_1.isDefineExp(exp.exps[0])) {
-        if (!exports.isDefineValid)
-            return TypeError();
+        var isValid = exports.isDefineValid(exp.exps[0], tenv);
+        if (error_1.isError(isValid))
+            return TypeError(isValid.message);
         var defineExp = exp.exps[0];
-        var varArr = [defineExp.var.var];
-        var valT = exports.typeofExp(defineExp.val, tenv);
-        if (error_1.isError(valT))
-            return valT;
-        var valArr = [valT];
-        var newEnv = TEnv_1.makeExtendTEnv(varArr, valArr, tenv);
+        var newEnv = exports.extendEnv(defineExp, tenv);
         return exports.typeofProgram(subProg, newEnv);
     }
     return exports.typeofProgram(subProg, tenv);

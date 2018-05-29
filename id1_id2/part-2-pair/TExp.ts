@@ -5,7 +5,7 @@
 ;; Syntax with optional type annotations for var declarations and function return types.
 
 ;; Type language
-;; <texp>         ::= <atomic-te> | <compound-te> | <tvar>
+;; <texp>         ::= <atomic-te> | <compound-te> | <tvar> | <pair>
 ;; <atomic-te>    ::= <num-te> | <bool-te> | <void-te>
 ;; <num-te>       ::= number   // num-te()
 ;; <bool-te>      ::= boolean  // bool-te()
@@ -18,6 +18,7 @@
 ;; <non-empty-tuple-te> ::= ( <non-tuple-te> *)* <non-tuple-te> // tuple-te(tes: list(te))
 ;; <empty-te>     ::= Empty
 ;; <tvar>         ::= a symbol starting with T // tvar(id: Symbol, contents; Box(string|boolean))
+;; <pair>         ::= [<texp> <texp>]
 
 ;; Examples of type expressions
 ;; number
@@ -43,7 +44,7 @@ export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp;
 export const isAtomicTExp = (x: any): x is AtomicTExp =>
     isNumTExp(x) || isBoolTExp(x) || isStrTExp(x) || isVoidTExp(x);
 
-export type CompoundTExp = ProcTExp | TupleTExp;
+export type CompoundTExp = ProcTExp | TupleTExp | PairTExp;
 export const isCompoundTExp = (x: any): x is CompoundTExp => isProcTExp(x) || isTupleTExp(x);
 
 export type NonTupleTExp = AtomicTExp | ProcTExp | TVar;
@@ -74,6 +75,11 @@ export const isProcTExp = (x: any): x is ProcTExp => x.tag === "ProcTExp";
 // Uniform access to all components of a ProcTExp
 export const procTExpComponents = (pt: ProcTExp): TExp[] =>
     [...pt.paramTEs, pt.returnTE];
+
+
+export type PairTExp ={ tag: "PairTExp", TLeft: TExp, TRight: TExp}
+export const makePairTExp = (leftT, rightT): PairTExp => ({tag: "PairTExp", TLeft : leftT, TRight: rightT});
+export const isPairTExp = (x: any): x is PairTExp => x.tag === "PairTExp";
 
 export type TupleTExp = NonEmptyTupleTExp | EmptyTupleTExp;
 export const isTupleTExp = (x: any): x is TupleTExp =>
@@ -151,6 +157,7 @@ export const parseTExp = (texp: any): TExp | Error =>
     (texp === "boolean") ? makeBoolTExp() :
     (texp === "void") ? makeVoidTExp() :
     (texp === "string") ? makeStrTExp() :
+    
     isString(texp) ? makeTVar(texp) :
     isArray(texp) ? parseCompoundTExp(texp) :
     Error(`Unexpected TExp - ${texp}`);
@@ -160,7 +167,12 @@ export const parseTExp = (texp: any): TExp | Error =>
 ;; expected exactly one -> in the list
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
-const parseCompoundTExp = (texps: any[]): ProcTExp | Error => {
+const parseCompoundTExp = (texps: any[]): ProcTExp | PairTExp | Error => {
+    if (texps[0] = "pair")
+    {
+        return makePairTExp(texps[1], texps[2])
+    }
+
     const pos = texps.indexOf('->');
     return (pos === -1)  ? Error(`Procedure type expression without -> - ${texps}`) :
     (pos === 0) ? Error(`No param types in proc texp - ${texps}`) :
