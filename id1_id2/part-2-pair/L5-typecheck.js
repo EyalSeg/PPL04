@@ -78,7 +78,9 @@ exports.typeofPrim = function (p) {
                                 (p.op === 'display') ? TExp_1.parseTE('(T -> void)') :
                                     (p.op === 'newline') ? TExp_1.parseTE('(Empty -> void)') :
                                         (p.op === 'cons') ? TExp_1.parseTE('(T1 * T2 -> (pair T1 T2))') :
-                                            Error("Unknown primitive " + p.op);
+                                            (p.op === 'car') ? TExp_1.parseTE('((Pair T1  T2) -> T1)') :
+                                                (p.op === 'cdr') ? TExp_1.parseTE('((Pair T1  T2) -> T2)') :
+                                                    Error("Unknown primitive " + p.op);
 };
 // Purpose: compute the type of an if-exp
 // Typing rule:

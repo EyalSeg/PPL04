@@ -9,6 +9,7 @@ import { makeBoolTExp, makeNumTExp, makeProcTExp, makeTVar, makeVoidTExp, parseT
 assert.deepEqual(parseTE("number"), makeNumTExp());
 assert.deepEqual(parseTE("boolean"), makeBoolTExp());
 assert.deepEqual(parseTE("T1"), makeTVar("T1"));
+console.log(parseTE("(T * T -> boolean)"))
 assert.deepEqual(parseTE("(T * T -> boolean)"), makeProcTExp([makeTVar("T"), makeTVar("T")], makeBoolTExp()));
 assert.deepEqual(parseTE("(number -> (number -> number))"), makeProcTExp([makeNumTExp()], makeProcTExp([makeNumTExp()], makeNumTExp())));
 assert.deepEqual(parseTE("void"), makeVoidTExp());
@@ -93,19 +94,21 @@ assert.deepEqual(L5typeof("(define (x : (Empty -> number)) (lambda () : number 1
 
 
 // LitExp
-//assert.deepEqual(L5typeof("(quote ())"), "literal");
+assert.deepEqual(L5typeof("(quote ())"), "literal");
 
 // Pair
-console.log(L5typeof("(cons 1 '())"))
-assert.deepEqual(L5typeof("(cons 1 '())"), "(Pair number literal)");
-assert.deepEqual(L5typeof("(cons 1 1)"), "(Pair number number)");
-assert.deepEqual(L5typeof("(car (cons 1 1))"), "number");
- assert.deepEqual(L5typeof("(cdr (cons 1 #t))"), "boolean");
- assert.deepEqual(L5typeof("(cdr (cons (cons 1 2) (cons 1 2)))"), "(Pair number number)");
- assert.deepEqual(L5typeof("(cdr (cons (cons 1 2) (cons 1 #f)))"), "(Pair number boolean)");
- assert.deepEqual(L5typeof("(car (cons (cons 1 2) (cons 1 #f)))"), "(Pair number number)");
- assert.deepEqual(L5typeof("(car (cons (cons (cons #t #t) 2) (cons 1 #f)))"), "(Pair (Pair boolean boolean) number)");
- assert.deepEqual(L5typeof("(cdr (cons (cons (cons #t #t) 2) (cons 1 #f)))"), "(Pair number boolean)");
+// console.log(L5typeof("(cons 1 '())"))
+// assert.deepEqual(L5typeof("(cons 1 '())"), "(Pair number literal)");
+// assert.deepEqual(L5typeof("(cons 1 1)"), "(Pair number number)");
+// assert.deepEqual(L5typeof("(car (cons 1 1))"), "number");
+//  assert.deepEqual(L5typeof("(cdr (cons 1 #t))"), "boolean");
+//  assert.deepEqual(L5typeof("(cdr (cons (cons 1 2) (cons 1 2)))"), "(Pair number number)");
+//  assert.deepEqual(L5typeof("(cdr (cons (cons 1 2) (cons 1 #f)))"), "(Pair number boolean)");
+//  assert.deepEqual(L5typeof("(car (cons (cons 1 2) (cons 1 #f)))"), "(Pair number number)");
+//  assert.deepEqual(L5typeof("(car (cons (cons (cons #t #t) 2) (cons 1 #f)))"), "(Pair (Pair boolean boolean) number)");
+//  assert.deepEqual(L5typeof("(cdr (cons (cons (cons #t #t) 2) (cons 1 #f)))"), "(Pair number boolean)");
+
+
 //  assert.deepEqual(L5typeof("(lambda((a : number) (b : number)) : (Pair number number) (cons a b))"),
 //             ,     "(number * number -> (Pair number number))");
 //  assert.deepEqual(L5typeof("(lambda((a : number) (b : (Pair number boolean))) : (Pair number (Pair number boolean)) (cons a b))"),
@@ -122,16 +125,17 @@ assert.deepEqual(L5typeof("(car (cons 1 1))"), "number");
 
 // */
 
-// // Polymorphic tests
-// assert.deepEqual(L5typeof("(lambda((x : T1)) : T1 x)"), "(T1 -> T1)");
+// Polymorphic tests
+assert.deepEqual(L5typeof("(lambda((x : T1)) : T1 x)"), "(T1 -> T1)");
 
-// assert.deepEqual(L5typeof(`(let (((x : number) 1))
-//                              (lambda((y : T) (z : T)) : T
-//                                (if (> x 2) y z)))`),
-//                  "(T * T -> T)");
+assert.deepEqual(L5typeof(`(let (((x : number) 1))
+                             (lambda((y : T) (z : T)) : T
+                               (if (> x 2) y z)))`),
+                 "(T * T -> T)");
 
-// assert.deepEqual(L5typeof("(lambda () : number 1)"), "(Empty -> number)");
+assert.deepEqual(L5typeof("(lambda () : number 1)"), "(Empty -> number)");
 
-// assert.deepEqual(L5typeof(`(define (x : (T1 -> (T1 -> number)))
-//                              (lambda ((x : T1)) : (T1 -> number)
-//                                (lambda((y : T1)) : number 5)))`), "void");
+assert.deepEqual(L5typeof(`(define (x : (T1 -> (T1 -> number)))
+                             (lambda ((x : T1)) : (T1 -> number)
+                               (lambda((y : T1)) : number 5)))`), "void");
+console.log('done')

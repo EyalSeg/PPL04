@@ -87,6 +87,9 @@ export const typeofPrim = (p: PrimOp): TExp | Error =>
     (p.op === 'display') ? parseTE('(T -> void)') :
     (p.op === 'newline') ? parseTE('(Empty -> void)') :
     (p.op === 'cons') ? parseTE('(T1 * T2 -> (pair T1 T2))') :
+    (p.op === 'car') ? parseTE('((Pair T1  T2) -> T1)') :
+    (p.op === 'cdr') ? parseTE('((Pair T1  T2) -> T2)') :
+    
     Error(`Unknown primitive ${p.op}`);
 
 

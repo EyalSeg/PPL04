@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 ;; <bool-te>      ::= boolean  // bool-te()
 ;; <str-te>       ::= string   // str-te()
 ;; <void-te>      ::= void     // void-te()
+;; <lit-te>       ::= literal
 ;; <compound-te>  ::= <proc-te> | <tuple-te>
 ;; <non-tuple-te> ::= <atomic-te> | <proc-te> | <tvar>
 ;; <proc-te>      ::= [ <tuple-te> -> <non-tuple-te> ] // proc-te(param-tes: list(te), return-te: te)
@@ -20,7 +21,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 ;; <non-empty-tuple-te> ::= ( <non-tuple-te> *)* <non-tuple-te> // tuple-te(tes: list(te))
 ;; <empty-te>     ::= Empty
 ;; <tvar>         ::= a symbol starting with T // tvar(id: Symbol, contents; Box(string|boolean))
-;; <pair>         ::= [<texp> <texp>]
+;; <pair>         ::= [<non-tuple-te> <non-tuple-te>]
 
 ;; Examples of type expressions
 ;; number
@@ -40,9 +41,9 @@ var error_1 = require("./error");
 var list_1 = require("./list");
 exports.isTExp = function (x) { return exports.isAtomicTExp(x) || exports.isCompoundTExp(x) || exports.isTVar(x); };
 exports.isAtomicTExp = function (x) {
-    return exports.isNumTExp(x) || exports.isBoolTExp(x) || exports.isStrTExp(x) || exports.isVoidTExp(x);
+    return exports.isNumTExp(x) || exports.isBoolTExp(x) || exports.isStrTExp(x) || exports.isVoidTExp(x) || exports.isLitTExp(x);
 };
-exports.isCompoundTExp = function (x) { return exports.isProcTExp(x) || exports.isTupleTExp(x); };
+exports.isCompoundTExp = function (x) { return exports.isProcTExp(x) || exports.isTupleTExp(x) || exports.isPairTExp(x); };
 exports.isNonTupleTExp = function (x) {
     return exports.isAtomicTExp(x) || exports.isProcTExp(x) || exports.isTVar(x);
 };
@@ -54,6 +55,8 @@ exports.makeStrTExp = function () { return ({ tag: "StrTExp" }); };
 exports.isStrTExp = function (x) { return x.tag === "StrTExp"; };
 exports.makeVoidTExp = function () { return ({ tag: "VoidTExp" }); };
 exports.isVoidTExp = function (x) { return x.tag === "VoidTExp"; };
+exports.makeLitTExp = function () { return ({ tag: "LitTExp" }); };
+exports.isLitTExp = function (x) { return x.tag === "LitTExp"; };
 exports.makeProcTExp = function (paramTEs, returnTE) {
     return ({ tag: "ProcTExp", paramTEs: paramTEs, returnTE: returnTE });
 };
@@ -63,6 +66,11 @@ exports.procTExpComponents = function (pt) {
     return pt.paramTEs.concat([pt.returnTE]);
 };
 exports.makePairTExp = function (leftT, rightT) { return ({ tag: "PairTExp", TLeft: leftT, TRight: rightT }); };
+exports.safeMakePairTExp = function (leftT, rightT) {
+    return error_1.isError(leftT) ? leftT :
+        error_1.isError(rightT) ? rightT :
+            exports.makePairTExp(leftT, rightT);
+};
 exports.isPairTExp = function (x) { return x.tag === "PairTExp"; };
 exports.isTupleTExp = function (x) {
     return exports.isNonEmptyTupleTExp(x) || exports.isEmptyTupleTExp(x);
@@ -134,9 +142,10 @@ exports.parseTExp = function (texp) {
         (texp === "boolean") ? exports.makeBoolTExp() :
             (texp === "void") ? exports.makeVoidTExp() :
                 (texp === "string") ? exports.makeStrTExp() :
-                    L5_ast_1.isString(texp) ? exports.makeTVar(texp) :
-                        L5_ast_1.isArray(texp) ? parseCompoundTExp(texp) :
-                            Error("Unexpected TExp - " + texp);
+                    (texp === "literal") ? exports.makeLitTExp() :
+                        L5_ast_1.isString(texp) ? exports.makeTVar(texp) :
+                            L5_ast_1.isArray(texp) ? parseCompoundTExp(texp) :
+                                Error("Unexpected TExp - " + texp);
 };
 /*
 ;; expected structure: (<params> -> <returnte>)
@@ -144,8 +153,10 @@ exports.parseTExp = function (texp) {
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
 var parseCompoundTExp = function (texps) {
-    if (texps[0] = "pair") {
-        return exports.makePairTExp(texps[1], texps[2]);
+    if (texps[0] == "pair") {
+        if (texps.length != 3)
+            return Error("pair expected 2 elements but got " + (texps.length - 1));
+        return exports.safeMakePairTExp(texps[1], texps[2]);
     }
     var pos = texps.indexOf('->');
     return (pos === -1) ? Error("Procedure type expression without -> - " + texps) :
@@ -196,10 +207,12 @@ exports.unparseTExp = function (te) {
                 exports.isBoolTExp(x) ? 'boolean' :
                     exports.isStrTExp(x) ? 'string' :
                         exports.isVoidTExp(x) ? 'void' :
-                            exports.isEmptyTVar(x) ? x.var :
-                                exports.isTVar(x) ? up(exports.tvarContents(x)) :
-                                    exports.isProcTExp(x) ? unparseTuple(x.paramTEs).concat(['->', exports.unparseTExp(x.returnTE)]) :
-                                        ["never"];
+                            L5_ast_1.isLitExp(x) ? 'literal' :
+                                exports.isEmptyTVar(x) ? x.var :
+                                    exports.isTVar(x) ? up(exports.tvarContents(x)) :
+                                        exports.isPairTExp(x) ? ['Pair', exports.unparseTExp(x.TLeft), exports.unparseTExp(x.TRight)] :
+                                            exports.isProcTExp(x) ? unparseTuple(x.paramTEs).concat(['->', exports.unparseTExp(x.returnTE)]) :
+                                                ["never"];
     };
     var unparsed = up(te);
     return L5_ast_1.isString(unparsed) ? unparsed :
@@ -209,6 +222,8 @@ exports.unparseTExp = function (te) {
 };
 var matchTVarsInTE = function (te1, te2, succ, fail) {
     return (exports.isTVar(te1) || exports.isTVar(te2)) ? matchTVarsinTVars(exports.tvarDeref(te1), exports.tvarDeref(te2), succ, fail) :
+        // (isPairTExp(te1) || isPairTExp(te2)) ?
+        //     ((isPairTExp(te1) && isPairTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
         (exports.isAtomicTExp(te1) || exports.isAtomicTExp(te2)) ?
             ((exports.isAtomicTExp(te1) && exports.isAtomicTExp(te2) && exports.eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
             matchTVarsInTProcs(te1, te2, succ, fail);

@@ -11,6 +11,7 @@
 ;; <bool-te>      ::= boolean  // bool-te()
 ;; <str-te>       ::= string   // str-te()
 ;; <void-te>      ::= void     // void-te()
+;; <lit-te>       ::= literal
 ;; <compound-te>  ::= <proc-te> | <tuple-te>
 ;; <non-tuple-te> ::= <atomic-te> | <proc-te> | <tvar>
 ;; <proc-te>      ::= [ <tuple-te> -> <non-tuple-te> ] // proc-te(param-tes: list(te), return-te: te)
@@ -18,7 +19,7 @@
 ;; <non-empty-tuple-te> ::= ( <non-tuple-te> *)* <non-tuple-te> // tuple-te(tes: list(te))
 ;; <empty-te>     ::= Empty
 ;; <tvar>         ::= a symbol starting with T // tvar(id: Symbol, contents; Box(string|boolean))
-;; <pair>         ::= [<texp> <texp>]
+;; <pair>         ::= [<non-tuple-te> <non-tuple-te>]
 
 ;; Examples of type expressions
 ;; number
@@ -32,7 +33,7 @@
 */
 import { chain, concat, filter, map, uniq } from "ramda";
 import p = require("s-expression");
-import { isArray, isBoolean, isEmpty, isString } from './L5-ast';
+import { isArray, isBoolean, isEmpty, isString, makeLitExp, isLitExp } from './L5-ast';
 import { makeBox, setBox, unbox, Box } from './box';
 import { getErrorMessages, hasNoError, isError, safeF, safeFL } from './error';
 import { first, rest } from './list';
@@ -40,12 +41,12 @@ import { first, rest } from './list';
 export type TExp =  AtomicTExp | CompoundTExp | TVar;
 export const isTExp = (x: any): x is TExp => isAtomicTExp(x) || isCompoundTExp(x) || isTVar(x);
 
-export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp;
+export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp | LitTExp;
 export const isAtomicTExp = (x: any): x is AtomicTExp =>
-    isNumTExp(x) || isBoolTExp(x) || isStrTExp(x) || isVoidTExp(x);
+    isNumTExp(x) || isBoolTExp(x) || isStrTExp(x) || isVoidTExp(x) || isLitTExp(x);
 
 export type CompoundTExp = ProcTExp | TupleTExp | PairTExp;
-export const isCompoundTExp = (x: any): x is CompoundTExp => isProcTExp(x) || isTupleTExp(x);
+export const isCompoundTExp = (x: any): x is CompoundTExp => isProcTExp(x) || isTupleTExp(x) || isPairTExp(x);
 
 export type NonTupleTExp = AtomicTExp | ProcTExp | TVar;
 export const isNonTupleTExp = (x: any): x is NonTupleTExp =>
@@ -67,6 +68,10 @@ export type VoidTExp = { tag: "VoidTExp" };
 export const makeVoidTExp = (): VoidTExp => ({tag: "VoidTExp"});
 export const isVoidTExp = (x: any): x is VoidTExp => x.tag === "VoidTExp";
 
+export type LitTExp = {tag: "LitTExp"}
+export const makeLitTExp = (): LitTExp => ({tag: "LitTExp"});
+export const isLitTExp = (x: any): x is LitTExp => x.tag === "LitTExp";
+
 // proc-te(param-tes: list(te), return-te: te)
 export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; };
 export const makeProcTExp = (paramTEs: TExp[], returnTE: TExp): ProcTExp =>
@@ -79,6 +84,11 @@ export const procTExpComponents = (pt: ProcTExp): TExp[] =>
 
 export type PairTExp ={ tag: "PairTExp", TLeft: TExp, TRight: TExp}
 export const makePairTExp = (leftT, rightT): PairTExp => ({tag: "PairTExp", TLeft : leftT, TRight: rightT});
+export const safeMakePairTExp = (leftT, rightT) : PairTExp | Error => {
+    return isError(leftT) ? leftT :
+    isError(rightT) ? rightT :
+    makePairTExp(leftT, rightT)
+}
 export const isPairTExp = (x: any): x is PairTExp => x.tag === "PairTExp";
 
 export type TupleTExp = NonEmptyTupleTExp | EmptyTupleTExp;
@@ -157,7 +167,7 @@ export const parseTExp = (texp: any): TExp | Error =>
     (texp === "boolean") ? makeBoolTExp() :
     (texp === "void") ? makeVoidTExp() :
     (texp === "string") ? makeStrTExp() :
-    
+    (texp === "literal") ? makeLitTExp() :
     isString(texp) ? makeTVar(texp) :
     isArray(texp) ? parseCompoundTExp(texp) :
     Error(`Unexpected TExp - ${texp}`);
@@ -168,9 +178,12 @@ export const parseTExp = (texp: any): TExp | Error =>
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
 const parseCompoundTExp = (texps: any[]): ProcTExp | PairTExp | Error => {
-    if (texps[0] = "pair")
+    if (texps[0] == "pair")
     {
-        return makePairTExp(texps[1], texps[2])
+        if (texps.length != 3)
+            return Error("pair expected 2 elements but got " + (texps.length - 1))
+        
+        return safeMakePairTExp(texps[1], texps[2])
     }
 
     const pos = texps.indexOf('->');
@@ -225,8 +238,10 @@ export const unparseTExp = (te: TExp | Error): string | Error => {
         isBoolTExp(x) ? 'boolean' :
         isStrTExp(x) ? 'string' :
         isVoidTExp(x) ? 'void' :
+        isLitExp(x) ? 'literal':
         isEmptyTVar(x) ? x.var :
         isTVar(x) ? up(tvarContents(x)) :
+        isPairTExp(x) ? ['Pair', unparseTExp(x.TLeft), unparseTExp(x.TRight)] :
         isProcTExp(x) ? [...unparseTuple(x.paramTEs), '->', unparseTExp(x.returnTE)] :
         ["never"];
     const unparsed = up(te);
@@ -264,9 +279,11 @@ const matchTVarsInTE = <T1, T2>(te1: TExp, te2: TExp,
                                 succ: (mapping: Array<Pair<TVar, TVar>>) => T1,
                                 fail: () => T2): T1 | T2 =>
     (isTVar(te1) || isTVar(te2)) ? matchTVarsinTVars(tvarDeref(te1), tvarDeref(te2), succ, fail) :
+    // (isPairTExp(te1) || isPairTExp(te2)) ?
+    //     ((isPairTExp(te1) && isPairTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
     (isAtomicTExp(te1) || isAtomicTExp(te2)) ?
         ((isAtomicTExp(te1) && isAtomicTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
-    matchTVarsInTProcs(te1, te2, succ, fail);
+        matchTVarsInTProcs(te1, te2, succ, fail);
 
 // te1 and te2 are the result of tvarDeref
 const matchTVarsinTVars = <T1, T2>(te1: TExp, te2: TExp,
