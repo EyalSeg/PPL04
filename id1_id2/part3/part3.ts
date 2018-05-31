@@ -74,6 +74,9 @@ export function* interleave(g1 , g2) {
  * Example: take(cycle([1, 2, 3]), 8) => [1, 2, 3, 1, 2, 3, 1, 2]
  */
 export function* cycle(array) {
+    if (isNullOrUndefinedOrEmpty(array))
+        return
+        
     while (true)
         yield* array
 }
