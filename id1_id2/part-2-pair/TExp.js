@@ -153,10 +153,12 @@ exports.parseTExp = function (texp) {
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
 var parseCompoundTExp = function (texps) {
-    if (texps[0] == "pair") {
-        if (texps.length != 3)
+    if (texps[0] === "Pair") {
+        if (texps.length !== 3)
             return Error("pair expected 2 elements but got " + (texps.length - 1));
-        return exports.safeMakePairTExp(texps[1], texps[2]);
+        var leftT = exports.parseTExp(texps[1]);
+        var rightT = exports.parseTExp(texps[2]);
+        return exports.safeMakePairTExp(leftT, rightT);
     }
     var pos = texps.indexOf('->');
     return (pos === -1) ? Error("Procedure type expression without -> - " + texps) :
@@ -207,7 +209,7 @@ exports.unparseTExp = function (te) {
                 exports.isBoolTExp(x) ? 'boolean' :
                     exports.isStrTExp(x) ? 'string' :
                         exports.isVoidTExp(x) ? 'void' :
-                            L5_ast_1.isLitExp(x) ? 'literal' :
+                            exports.isLitTExp(x) ? 'literal' :
                                 exports.isEmptyTVar(x) ? x.var :
                                     exports.isTVar(x) ? up(exports.tvarContents(x)) :
                                         exports.isPairTExp(x) ? ['Pair', exports.unparseTExp(x.TLeft), exports.unparseTExp(x.TRight)] :
@@ -220,29 +222,33 @@ exports.unparseTExp = function (te) {
             L5_ast_1.isArray(unparsed) ? "(" + unparsed.join(' ') + ")" :
                 "Error " + unparsed;
 };
-var matchTVarsInTE = function (te1, te2, succ, fail) {
-    return (exports.isTVar(te1) || exports.isTVar(te2)) ? matchTVarsinTVars(exports.tvarDeref(te1), exports.tvarDeref(te2), succ, fail) :
+exports.matchTVarsInTE = function (te1, te2, succ, fail) {
+    return (exports.isTVar(te1) || exports.isTVar(te2)) ? exports.matchTVarsinTVars(exports.tvarDeref(te1), exports.tvarDeref(te2), succ, fail) :
         // (isPairTExp(te1) || isPairTExp(te2)) ?
         //     ((isPairTExp(te1) && isPairTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
-        (exports.isAtomicTExp(te1) || exports.isAtomicTExp(te2)) ?
-            ((exports.isAtomicTExp(te1) && exports.isAtomicTExp(te2) && exports.eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
-            matchTVarsInTProcs(te1, te2, succ, fail);
+        (exports.isPairTExp(te1) || exports.isPairTExp(te2)) ?
+            ((exports.isPairTExp(te1) && exports.isPairTExp(te2)) ?
+                exports.matchTVarsInTEs([te1.TLeft, te1.TRight], [te2.TLeft, te2.TRight], succ, fail) :
+                fail()) :
+            (exports.isAtomicTExp(te1) || exports.isAtomicTExp(te2)) ?
+                ((exports.isAtomicTExp(te1) && exports.isAtomicTExp(te2) && exports.eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
+                exports.matchTVarsInTProcs(te1, te2, succ, fail);
 };
 // te1 and te2 are the result of tvarDeref
-var matchTVarsinTVars = function (te1, te2, succ, fail) {
+exports.matchTVarsinTVars = function (te1, te2, succ, fail) {
     return (exports.isTVar(te1) && exports.isTVar(te2)) ? (exports.eqTVar(te1, te2) ? succ([]) : succ([{ left: te1, right: te2 }])) :
         (exports.isTVar(te1) || exports.isTVar(te2)) ? fail() :
-            matchTVarsInTE(te1, te2, succ, fail);
+            exports.matchTVarsInTE(te1, te2, succ, fail);
 };
-var matchTVarsInTProcs = function (te1, te2, succ, fail) {
-    return (exports.isProcTExp(te1) && exports.isProcTExp(te2)) ? matchTVarsInTEs(exports.procTExpComponents(te1), exports.procTExpComponents(te2), succ, fail) :
+exports.matchTVarsInTProcs = function (te1, te2, succ, fail) {
+    return (exports.isProcTExp(te1) && exports.isProcTExp(te2)) ? exports.matchTVarsInTEs(exports.procTExpComponents(te1), exports.procTExpComponents(te2), succ, fail) :
         fail();
 };
-var matchTVarsInTEs = function (te1, te2, succ, fail) {
+exports.matchTVarsInTEs = function (te1, te2, succ, fail) {
     return (L5_ast_1.isEmpty(te1) && L5_ast_1.isEmpty(te2)) ? succ([]) :
         (L5_ast_1.isEmpty(te1) || L5_ast_1.isEmpty(te2)) ? fail() :
             // Match first then continue on rest
-            matchTVarsInTE(list_1.first(te1), list_1.first(te2), function (subFirst) { return matchTVarsInTEs(list_1.rest(te1), list_1.rest(te2), function (subRest) { return succ(ramda_1.concat(subFirst, subRest)); }, fail); }, fail);
+            exports.matchTVarsInTE(list_1.first(te1), list_1.first(te2), function (subFirst) { return exports.matchTVarsInTEs(list_1.rest(te1), list_1.rest(te2), function (subRest) { return succ(ramda_1.concat(subFirst, subRest)); }, fail); }, fail);
 };
 // Signature: equivalent-tes?(te1, te2)
 // Purpose:   Check whether 2 type expressions are equivalent up to
@@ -251,7 +257,7 @@ var matchTVarsInTEs = function (te1, te2, succ, fail) {
 //                         parseTExp('(T4 * (Number -> T5) -> T6))') => #t
 exports.equivalentTEs = function (te1, te2) {
     // console.log(`EqTEs ${JSON.stringify(te1)} - ${JSON.stringify(te2)}`);
-    var tvarsPairs = matchTVarsInTE(te1, te2, function (x) { return x; }, function () { return false; });
+    var tvarsPairs = exports.matchTVarsInTE(te1, te2, function (x) { return x; }, function () { return false; });
     // console.log(`EqTEs pairs = ${map(JSON.stringify, tvarsPairs)}`)
     if (L5_ast_1.isBoolean(tvarsPairs))
         return false;

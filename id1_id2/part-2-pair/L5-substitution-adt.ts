@@ -1,6 +1,6 @@
 import { curry, map, prop, zipWith } from 'ramda';
 import { isEmpty } from "./L5-ast";
-import { eqTVar, isAtomicTExp, isProcTExp, isTVar, makeProcTExp, unparseTExp, TExp, TVar } from "./TExp";
+import { eqTVar, isAtomicTExp, isProcTExp, isTVar, makeProcTExp, unparseTExp, TExp, TVar, isPairTExp, makePairTExp } from "./TExp";
 import { getErrorMessages, hasNoError, isError } from "./error";
 import { first, rest } from "./list";
 
@@ -40,12 +40,19 @@ export const makeEmptySub = (): Sub => ({tag: "Sub", vars: [], tes: []});
 // Purpose: when attempting to bind tvar to te in a sub - check whether tvar occurs in te.
 // Return error if a circular reference is found.
 export const checkNoOccurrence = (tvar: TVar, te: TExp): true | Error => {
+    // Your codebase is bad and you should feel bad!!!
+
     const check = (e: TExp): true | Error =>
         isTVar(e) ? ((e.var === tvar.var) ? Error(`Occur check error - circular sub ${tvar.var} in ${unparseTExp(te)}`) : true) :
         isAtomicTExp(e) ? true :
         isProcTExp(e) ? (hasNoError(map(check, e.paramTEs)) ?
                           check(e.returnTE) :
                           Error(getErrorMessages(map(check, e.paramTEs)))) :
+        isPairTExp(e) ?
+            (hasNoError([check(e.TLeft), check(e.TRight)]))?
+                true :
+                Error(getErrorMessages([check(e.TLeft), check(e.TRight)])) :
+
         Error(`Bad type expression ${e} in ${te}`);
     // console.log(`checkNoOcc ${tvar.var} in ${unparseTExp(te)}`);
     return check(te);
@@ -74,6 +81,7 @@ export const applySub = (sub: Sub, te: TExp): TExp =>
     isTVar(te) ? subGet(sub, te) :
     isProcTExp(te) ? makeProcTExp(map(curry(applySub)(sub), te.paramTEs),
                                   applySub(sub, te.returnTE)) :
+    isPairTExp(te) ? makePairTExp(applySub(sub, te.TLeft), applySub(sub, te.TRight)) :
     te;
 
 // ============================================================

@@ -32,13 +32,18 @@ exports.makeEmptySub = function () { return ({ tag: "Sub", vars: [], tes: [] });
 // Purpose: when attempting to bind tvar to te in a sub - check whether tvar occurs in te.
 // Return error if a circular reference is found.
 exports.checkNoOccurrence = function (tvar, te) {
+    // Your codebase is bad and you should feel bad!!!
     var check = function (e) {
         return TExp_1.isTVar(e) ? ((e.var === tvar.var) ? Error("Occur check error - circular sub " + tvar.var + " in " + TExp_1.unparseTExp(te)) : true) :
             TExp_1.isAtomicTExp(e) ? true :
                 TExp_1.isProcTExp(e) ? (error_1.hasNoError(ramda_1.map(check, e.paramTEs)) ?
                     check(e.returnTE) :
                     Error(error_1.getErrorMessages(ramda_1.map(check, e.paramTEs)))) :
-                    Error("Bad type expression " + e + " in " + te);
+                    TExp_1.isPairTExp(e) ?
+                        (error_1.hasNoError([check(e.TLeft), check(e.TRight)])) ?
+                            true :
+                            Error(error_1.getErrorMessages([check(e.TLeft), check(e.TRight)])) :
+                        Error("Bad type expression " + e + " in " + te);
     };
     // console.log(`checkNoOcc ${tvar.var} in ${unparseTExp(te)}`);
     return check(te);
@@ -64,7 +69,8 @@ exports.applySub = function (sub, te) {
         TExp_1.isAtomicTExp(te) ? te :
             TExp_1.isTVar(te) ? exports.subGet(sub, te) :
                 TExp_1.isProcTExp(te) ? TExp_1.makeProcTExp(ramda_1.map(ramda_1.curry(exports.applySub)(sub), te.paramTEs), exports.applySub(sub, te.returnTE)) :
-                    te;
+                    TExp_1.isPairTExp(te) ? TExp_1.makePairTExp(exports.applySub(sub, te.TLeft), exports.applySub(sub, te.TRight)) :
+                        te;
 };
 // ============================================================
 // Purpose: Returns the composition of substitutions s.t.:

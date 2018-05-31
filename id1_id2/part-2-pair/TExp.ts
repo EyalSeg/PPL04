@@ -178,12 +178,14 @@ export const parseTExp = (texp: any): TExp | Error =>
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
 const parseCompoundTExp = (texps: any[]): ProcTExp | PairTExp | Error => {
-    if (texps[0] == "pair")
+    if (texps[0] === "Pair")
     {
-        if (texps.length != 3)
+        if (texps.length !== 3)
             return Error("pair expected 2 elements but got " + (texps.length - 1))
         
-        return safeMakePairTExp(texps[1], texps[2])
+        let leftT = parseTExp(texps[1])
+        let rightT = parseTExp(texps[2])
+        return safeMakePairTExp(leftT, rightT)
     }
 
     const pos = texps.indexOf('->');
@@ -238,7 +240,7 @@ export const unparseTExp = (te: TExp | Error): string | Error => {
         isBoolTExp(x) ? 'boolean' :
         isStrTExp(x) ? 'string' :
         isVoidTExp(x) ? 'void' :
-        isLitExp(x) ? 'literal':
+        isLitTExp(x) ? 'literal':
         isEmptyTVar(x) ? x.var :
         isTVar(x) ? up(tvarContents(x)) :
         isPairTExp(x) ? ['Pair', unparseTExp(x.TLeft), unparseTExp(x.TRight)] :
@@ -275,31 +277,35 @@ export const unparseTExp = (te: TExp | Error): string | Error => {
 
 type Pair<T1, T2> = {left: T1; right: T2};
 
-const matchTVarsInTE = <T1, T2>(te1: TExp, te2: TExp,
+export const matchTVarsInTE = <T1, T2>(te1: TExp, te2: TExp,
                                 succ: (mapping: Array<Pair<TVar, TVar>>) => T1,
                                 fail: () => T2): T1 | T2 =>
     (isTVar(te1) || isTVar(te2)) ? matchTVarsinTVars(tvarDeref(te1), tvarDeref(te2), succ, fail) :
     // (isPairTExp(te1) || isPairTExp(te2)) ?
     //     ((isPairTExp(te1) && isPairTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
+    (isPairTExp(te1) || isPairTExp(te2)) ? 
+        ((isPairTExp(te1) && isPairTExp(te2)) ? 
+            matchTVarsInTEs([te1.TLeft, te1.TRight], [te2.TLeft, te2.TRight], succ, fail) : 
+            fail()) :
     (isAtomicTExp(te1) || isAtomicTExp(te2)) ?
         ((isAtomicTExp(te1) && isAtomicTExp(te2) && eqAtomicTExp(te1, te2)) ? succ([]) : fail()) :
         matchTVarsInTProcs(te1, te2, succ, fail);
 
 // te1 and te2 are the result of tvarDeref
-const matchTVarsinTVars = <T1, T2>(te1: TExp, te2: TExp,
+export const matchTVarsinTVars = <T1, T2>(te1: TExp, te2: TExp,
                                     succ: (mapping: Array<Pair<TVar, TVar>>) => T1,
                                     fail: () => T2): T1 | T2 =>
     (isTVar(te1) && isTVar(te2)) ? (eqTVar(te1, te2) ? succ([]) : succ([{left: te1, right: te2}])) :
     (isTVar(te1) || isTVar(te2)) ? fail() :
     matchTVarsInTE(te1, te2, succ, fail);
 
-const matchTVarsInTProcs = <T1, T2>(te1: TExp, te2: TExp,
+export const matchTVarsInTProcs = <T1, T2>(te1: TExp, te2: TExp,
         succ: (mapping: Array<Pair<TVar, TVar>>) => T1,
         fail: () => T2): T1 | T2 =>
     (isProcTExp(te1) && isProcTExp(te2)) ? matchTVarsInTEs(procTExpComponents(te1), procTExpComponents(te2), succ, fail) :
     fail();
 
-const matchTVarsInTEs = <T1, T2>(te1: TExp[], te2: TExp[],
+export const matchTVarsInTEs = <T1, T2>(te1: TExp[], te2: TExp[],
                                     succ: (mapping: Array<Pair<TVar, TVar>>) => T1,
                                     fail: () => T2): T1 | T2 =>
     (isEmpty(te1) && isEmpty(te2)) ? succ([]) :

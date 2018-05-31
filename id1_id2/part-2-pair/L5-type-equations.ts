@@ -111,6 +111,8 @@ export const makeEquationFromExp = (exp: A.Exp, pool: Pool): Equation[] =>
     A.isBoolExp(exp) ? [makeEquation(inPool(pool, exp), T.makeBoolTExp())] :
     // The type of a primitive procedure is given by the primitive.
     A.isPrimOp(exp) ? [makeEquation(inPool(pool, exp), trust(TC.typeofPrim(exp)))] :
+
+    A.isLitExp(exp) ? [makeEquation(inPool(pool, exp), trust(TC.typeofLit(exp)))] : 
     []; // Error(`makeEquationFromExp: Unsupported exp ${exp}`)
 
 
@@ -138,6 +140,7 @@ export const inferType = (exp: A.Exp): T.TExp => {
 // Type: [Concrete-Exp -> Concrete-TExp]
 export const infer = (exp: string): string | Error => {
     const p = A.parse(exp);
+
     return A.isExp(p) ? safeF(T.unparseTExp)(safeF(inferType)(p)) :
            Error('Unsupported exp: ${p}');
 };
@@ -184,9 +187,18 @@ const solve = (equations: Equation[], sub: S.Sub): S.Sub | Error => {
 
 // Signature: canUnify(equation)
 // Purpose: Compare the structure of the type expressions of the equation
-const canUnify = (eq: Equation): boolean =>
-    T.isProcTExp(eq.left) && T.isProcTExp(eq.right) &&
-    (eq.left.paramTEs.length === eq.right.paramTEs.length);
+export const canUnify = (eq: Equation): boolean =>
+{
+    if (T.isProcTExp(eq.left) && T.isProcTExp(eq.right) &&
+        (eq.left.paramTEs.length === eq.right.paramTEs.length))
+        return true
+
+    if (T.isPairTExp(eq.left) && T.isPairTExp(eq.right))
+        return true
+    
+    return false;
+}
+    
 
 // Signature: splitEquation(equation)
 // Purpose: For an equation with unifyable type expressions,
@@ -198,9 +210,13 @@ const canUnify = (eq: Equation): boolean =>
 //            [ {left:T2, right: (T4 -> T4)},
 //              {left:T3, right: T1)} ]
 // @Pre: isCompoundExp(eq.left) && isCompoundExp(eq.right) && canUnify(eq)
-const splitEquation = (eq: Equation): Equation[] =>
+export const splitEquation = (eq: Equation): Equation[] =>
     (T.isProcTExp(eq.left) && T.isProcTExp(eq.right)) ?
         R.zipWith(makeEquation,
                   R.prepend(eq.left.returnTE, eq.left.paramTEs),
                   R.prepend(eq.right.returnTE, eq.right.paramTEs)) :
+
+    (T.isPairTExp(eq.left) && T.isPairTExp(eq.right)) ?
+        [makeEquation(eq.left.TLeft, eq.right.TLeft),
+        makeEquation(eq.left.TRight, eq.right.TRight)] :
     [];

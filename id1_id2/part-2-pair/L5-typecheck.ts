@@ -5,14 +5,15 @@ import { map, zip, zipWith } from 'ramda';
 import { isAppExp, isBoolExp, isDefineExp, isEmpty, isIfExp, isLetrecExp, isLetExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parse, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, LitExp, NumExp,
-         Parsed, PrimOp, ProcExp, Program, SetExp, StrExp } from "./L5-ast";
+         Parsed, PrimOp, ProcExp, Program, SetExp, StrExp, isLitExp, makeLitExp, isCompoundExp, CompoundExp } from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 // import { isEmpty, isLetrecExp, isLitExp, isStrExp, BoolExp } from "./L5-ast";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
-         BoolTExp, NumTExp, ProcTExp, StrTExp, TExp } from "./TExp";
+         BoolTExp, NumTExp, ProcTExp, StrTExp, TExp, makeLitTExp, makePairTExp } from "./TExp";
 import { getErrorMessages, hasNoError, isError } from './error';
 import { allT, first, rest, second } from './list';
+import { SExp, isCompoundSExp, CompoundSExp } from "./L5-value";
 
 // Purpose: Check that type expressions are equivalent
 // as part of a fully-annotated type check process of exp.
@@ -31,7 +32,14 @@ const checkEqualType = (te1: TExp | Error, te2: TExp | Error, exp: Exp): true | 
 
 // Purpose: Compute the type of a concrete fully-typed expression
 export const L5typeof = (concreteExp: string): string | Error =>
-    unparseTExp(typeofExp(parse(concreteExp), makeEmptyTEnv()));
+{
+    let parsed = parse(concreteExp)
+    let typeExp = typeofExp(parsed, makeEmptyTEnv())
+    let unparsed = unparseTExp(typeExp)
+
+    return unparsed
+}
+  //  unparseTExp(typeofExp(parse(concreteExp), makeEmptyTEnv()));
 
 // Purpose: Compute the type of an expression
 // Traverse the AST and check the type according to the exp type.
@@ -49,6 +57,8 @@ export const typeofExp = (exp: Parsed | Error, tenv: TEnv): TExp | Error =>
     isLetrecExp(exp) ? typeofLetrec(exp, tenv) :
     isDefineExp(exp) ? typeofDefine(exp, tenv) :
     isProgram(exp) ? typeofProgram(exp, tenv) :
+    isLitExp(exp) ? typeofLit(exp) :
+    
     // Skip isSetExp(exp) isLitExp(exp)
     Error("Unknown type");
 
@@ -86,9 +96,9 @@ export const typeofPrim = (p: PrimOp): TExp | Error =>
     (p.op === 'string=?') ? parseTE('(T1 * T2 -> boolean)') :
     (p.op === 'display') ? parseTE('(T -> void)') :
     (p.op === 'newline') ? parseTE('(Empty -> void)') :
-    (p.op === 'cons') ? parseTE('(T1 * T2 -> (pair T1 T2))') :
-    (p.op === 'car') ? parseTE('((Pair T1  T2) -> T1)') :
-    (p.op === 'cdr') ? parseTE('((Pair T1  T2) -> T2)') :
+    (p.op === 'cons') ? parseTE('(T1 * T2 -> (Pair T1 T2))') :
+    (p.op === 'car') ? parseTE('((Pair T1 T2) -> T1)') :
+    (p.op === 'cdr') ? parseTE('((Pair T1 T2) -> T2)') :
     
     Error(`Unknown primitive ${p.op}`);
 
@@ -127,10 +137,40 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): TExp | Error => {
         return makeProcTExp(argsTEs, proc.returnTE);
 };
 
+export const typeofLit = (exp : LitExp) : TExp | Error => {
+    return typeofSexp(exp.val)
+}
+
+export const typeofSexp = (sexp : SExp) : TExp | Error =>{
+    if (typeof(sexp) === "boolean")
+        return makeBoolTExp();
+
+    if (typeof(sexp) === "string")
+        return makeStrTExp()
+
+    if (typeof(sexp) === "number")
+        return makeNumTExp()
+
+    
+    if (isCompoundSExp(sexp)){
+        let compound = sexp.val
+        if (compound.length != 3)
+            return Error()
+
+        return makePairTExp(
+                            typeofSexp(compound[0]),
+                            typeofSexp(compound[2]))
+            
+    }
+    makeLitTExp()
+}
+    
+
+
 // Purpose: compute the type of an app-exp
 // Typing rule:
 // If   type<rator>(tenv) = (t1*..*tn -> t)
-//      type<rand1>(tenv) = t1
+//      type<rand1>(tenv) = t1  
 //      ...
 //      type<randn>(tenv) = tn
 // then type<(rator rand1...randn)>(tenv) = t

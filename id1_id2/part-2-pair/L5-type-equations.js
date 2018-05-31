@@ -91,7 +91,8 @@ exports.makeEquationFromExp = function (exp, pool) {
                 A.isBoolExp(exp) ? [exports.makeEquation(exports.inPool(pool, exp), T.makeBoolTExp())] :
                     // The type of a primitive procedure is given by the primitive.
                     A.isPrimOp(exp) ? [exports.makeEquation(exports.inPool(pool, exp), error_1.trust(TC.typeofPrim(exp)))] :
-                        [];
+                        A.isLitExp(exp) ? [exports.makeEquation(exports.inPool(pool, exp), error_1.trust(TC.typeofLit(exp)))] :
+                            [];
 }; // Error(`makeEquationFromExp: Unsupported exp ${exp}`)
 // ========================================================
 // Signature: inferType(exp)
@@ -154,15 +155,19 @@ var solve = function (equations, sub) {
     return T.isTVar(eq.left) ? solveVarEq(eq.left, eq.right) :
         T.isTVar(eq.right) ? solveVarEq(eq.right, eq.left) :
             bothSidesAtomic(eq) ? handleBothSidesAtomic(eq) :
-                (T.isCompoundTExp(eq.left) && T.isCompoundTExp(eq.right) && canUnify(eq)) ?
-                    solve(R.concat(list_1.rest(equations), splitEquation(eq)), sub) :
+                (T.isCompoundTExp(eq.left) && T.isCompoundTExp(eq.right) && exports.canUnify(eq)) ?
+                    solve(R.concat(list_1.rest(equations), exports.splitEquation(eq)), sub) :
                     Error("Equation contains incompatible types " + eq);
 };
 // Signature: canUnify(equation)
 // Purpose: Compare the structure of the type expressions of the equation
-var canUnify = function (eq) {
-    return T.isProcTExp(eq.left) && T.isProcTExp(eq.right) &&
-        (eq.left.paramTEs.length === eq.right.paramTEs.length);
+exports.canUnify = function (eq) {
+    if (T.isProcTExp(eq.left) && T.isProcTExp(eq.right) &&
+        (eq.left.paramTEs.length === eq.right.paramTEs.length))
+        return true;
+    if (T.isPairTExp(eq.left) && T.isPairTExp(eq.right))
+        return true;
+    return false;
 };
 // Signature: splitEquation(equation)
 // Purpose: For an equation with unifyable type expressions,
@@ -174,9 +179,12 @@ var canUnify = function (eq) {
 //            [ {left:T2, right: (T4 -> T4)},
 //              {left:T3, right: T1)} ]
 // @Pre: isCompoundExp(eq.left) && isCompoundExp(eq.right) && canUnify(eq)
-var splitEquation = function (eq) {
+exports.splitEquation = function (eq) {
     return (T.isProcTExp(eq.left) && T.isProcTExp(eq.right)) ?
         R.zipWith(exports.makeEquation, R.prepend(eq.left.returnTE, eq.left.paramTEs), R.prepend(eq.right.returnTE, eq.right.paramTEs)) :
-        [];
+        (T.isPairTExp(eq.left) && T.isPairTExp(eq.right)) ?
+            [exports.makeEquation(eq.left.TLeft, eq.right.TLeft),
+                exports.makeEquation(eq.left.TRight, eq.right.TRight)] :
+            [];
 };
 //# sourceMappingURL=L5-type-equations.js.map

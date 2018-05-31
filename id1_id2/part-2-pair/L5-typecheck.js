@@ -10,6 +10,7 @@ var TEnv_1 = require("./TEnv");
 var TExp_1 = require("./TExp");
 var error_1 = require("./error");
 var list_1 = require("./list");
+var L5_value_1 = require("./L5-value");
 // Purpose: Check that type expressions are equivalent
 // as part of a fully-annotated type check process of exp.
 // Return an error if the types are different - true otherwise.
@@ -26,8 +27,12 @@ var checkEqualType = function (te1, te2, exp) {
 // of its structure and the annotations it contains.
 // Purpose: Compute the type of a concrete fully-typed expression
 exports.L5typeof = function (concreteExp) {
-    return TExp_1.unparseTExp(exports.typeofExp(L5_ast_1.parse(concreteExp), TEnv_1.makeEmptyTEnv()));
+    var parsed = L5_ast_1.parse(concreteExp);
+    var typeExp = exports.typeofExp(parsed, TEnv_1.makeEmptyTEnv());
+    var unparsed = TExp_1.unparseTExp(typeExp);
+    return unparsed;
 };
+//  unparseTExp(typeofExp(parse(concreteExp), makeEmptyTEnv()));
 // Purpose: Compute the type of an expression
 // Traverse the AST and check the type according to the exp type.
 // We assume that all variables and procedures have been explicitly typed in the program.
@@ -44,8 +49,9 @@ exports.typeofExp = function (exp, tenv) {
                                         L5_ast_1.isLetrecExp(exp) ? exports.typeofLetrec(exp, tenv) :
                                             L5_ast_1.isDefineExp(exp) ? exports.typeofDefine(exp, tenv) :
                                                 L5_ast_1.isProgram(exp) ? exports.typeofProgram(exp, tenv) :
-                                                    // Skip isSetExp(exp) isLitExp(exp)
-                                                    Error("Unknown type");
+                                                    L5_ast_1.isLitExp(exp) ? exports.typeofLit(exp) :
+                                                        // Skip isSetExp(exp) isLitExp(exp)
+                                                        Error("Unknown type");
 };
 // Purpose: Compute the type of a sequence of expressions
 // Check all the exps in a sequence - return type of last.
@@ -77,9 +83,9 @@ exports.typeofPrim = function (p) {
                             (p.op === 'string=?') ? TExp_1.parseTE('(T1 * T2 -> boolean)') :
                                 (p.op === 'display') ? TExp_1.parseTE('(T -> void)') :
                                     (p.op === 'newline') ? TExp_1.parseTE('(Empty -> void)') :
-                                        (p.op === 'cons') ? TExp_1.parseTE('(T1 * T2 -> (pair T1 T2))') :
-                                            (p.op === 'car') ? TExp_1.parseTE('((Pair T1  T2) -> T1)') :
-                                                (p.op === 'cdr') ? TExp_1.parseTE('((Pair T1  T2) -> T2)') :
+                                        (p.op === 'cons') ? TExp_1.parseTE('(T1 * T2 -> (Pair T1 T2))') :
+                                            (p.op === 'car') ? TExp_1.parseTE('((Pair T1 T2) -> T1)') :
+                                                (p.op === 'cdr') ? TExp_1.parseTE('((Pair T1 T2) -> T2)') :
                                                     Error("Unknown primitive " + p.op);
 };
 // Purpose: compute the type of an if-exp
@@ -114,10 +120,28 @@ exports.typeofProc = function (proc, tenv) {
     else
         return TExp_1.makeProcTExp(argsTEs, proc.returnTE);
 };
+exports.typeofLit = function (exp) {
+    return exports.typeofSexp(exp.val);
+};
+exports.typeofSexp = function (sexp) {
+    if (typeof (sexp) === "boolean")
+        return TExp_1.makeBoolTExp();
+    if (typeof (sexp) === "string")
+        return TExp_1.makeStrTExp();
+    if (typeof (sexp) === "number")
+        return TExp_1.makeNumTExp();
+    if (L5_value_1.isCompoundSExp(sexp)) {
+        var compound = sexp.val;
+        if (compound.length != 3)
+            return Error();
+        return TExp_1.makePairTExp(exports.typeofSexp(compound[0]), exports.typeofSexp(compound[2]));
+    }
+    TExp_1.makeLitTExp();
+};
 // Purpose: compute the type of an app-exp
 // Typing rule:
 // If   type<rator>(tenv) = (t1*..*tn -> t)
-//      type<rand1>(tenv) = t1
+//      type<rand1>(tenv) = t1  
 //      ...
 //      type<randn>(tenv) = tn
 // then type<(rator rand1...randn)>(tenv) = t

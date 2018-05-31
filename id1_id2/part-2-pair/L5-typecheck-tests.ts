@@ -96,9 +96,8 @@ assert.deepEqual(L5typeof("(define (x : (Empty -> number)) (lambda () : number 1
 // LitExp
 assert.deepEqual(L5typeof("(quote ())"), "literal");
 
-// Pair
-// console.log(L5typeof("(cons 1 '())"))
-// assert.deepEqual(L5typeof("(cons 1 '())"), "(Pair number literal)");
+console.log(L5typeof("(cons 1 '())"))
+assert.deepEqual(L5typeof("(cons 1 '())"), "(Pair number literal)");
 // assert.deepEqual(L5typeof("(cons 1 1)"), "(Pair number number)");
 // assert.deepEqual(L5typeof("(car (cons 1 1))"), "number");
 //  assert.deepEqual(L5typeof("(cdr (cons 1 #t))"), "boolean");
